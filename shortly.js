@@ -13,6 +13,8 @@ var Links = require('./app/collections/links');
 var Link = require('./app/models/link');
 var Click = require('./app/models/click');
 
+
+
 var app = express();
 
 app.set('views', __dirname + '/views');
@@ -55,9 +57,8 @@ function(req, res) {
 });
 
 app.get('/logout', function(req, res) {
-  //console.log('logout request');
   res.clearCookie('session');
-  //delete req.cookies['session'];
+  req.logout(); //oauth
   res.redirect('/');
 });
 
@@ -159,15 +160,61 @@ app.post('/login', function(req, res){
   });
 });
 
+//oauth
+var passport = require('passport');
+var GitHubStrategy = require('passport-github2').Strategy;
+
+passport.serializeUser(function(user, done) {
+  done(null, user);
+});
+
+passport.deserializeUser(function(obj, done) {
+  done(null, obj);
+});
+
+passport.use(new GitHubStrategy({
+  clientID: 'ab74327c2c4c4e3ce71c',
+  clientSecret: '113e33a350dd9048285d867f3ad19411b53b7440',
+  callbackURL: 'http://127.0.0.1:4568/auth/github/callback'
+},
+  function(accessToken, refreshToken, profile, done) {
+    // asynchronous verification, for effect...
+    process.nextTick(function () {
+      
+      // To keep the example simple, the user's GitHub profile is returned to
+      // represent the logged-in user.  In a typical application, you would want
+      // to associate the GitHub account with a user record in your database,
+      //console.log(profile)
+      // and return that user instead.
+      return done(null, profile);
+    });
+  }
+));
+app.use(passport.initialize());
+app.get('/auth/github', 
+  passport.authenticate('github', { scope: [ 'user:email' ] }));
+app.get('/auth/github/callback', 
+  passport.authenticate('github', { failureRedirect: '/login' }),
+  function(req, res) {
+    //console.log(req);
+    //req.cookies['session'] = req.
+    console.log(req.session.passport.user.username);
+    req.cookies['session'] = Date.now(); 
+    res.cookie('session', Date.now());
+    res.redirect('/');
+  });
+
+///oauth end
+
 /************************************************************/
 // Write your authentication routes here
 /************************************************************/
 var authChecker = function(req, res, next) {
-    if (req.session.auth) {
-        next();
-    } else {
-       res.redirect("/login");
-    }
+  if (req.session.auth) {
+    next();
+  } else {
+    res.redirect("/login");
+  }
 };
 
 /************************************************************/
