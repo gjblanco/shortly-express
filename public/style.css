@@ -135,3 +135,12 @@ form input[type=text], form input[type=password] {
 .creator .message {
   clear: both;
 }
+
+div.error span {
+  float: right;
+  font-size: 10px;
+  cursor: pointer;
+}
+.hidden {
+  display: none;
+}

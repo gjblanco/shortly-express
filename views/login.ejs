@@ -1,4 +1,7 @@
 <h2>Login</h2>
+<%if(locals.failed !== undefined) {%>
+  <div class="error">username and password combination not found.<span onclick="$('.error').addClass('hidden')">X<span></div> 
+<%}%>
 <form action="/login" method="post">
     <div>
       <label for="username">Username:</label>

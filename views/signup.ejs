@@ -1,4 +1,7 @@
 <h2>Sign up</h2>
+<%if(locals.failed !== undefined) { %>
+  <div class="error">username <%username%> already taken.<span onclick="$('.error').addClass('hidden')">X<span></div> 
+<%}%>
 <form action="/signup" method="post">
     <div>
       <label for="username">Username:</label>

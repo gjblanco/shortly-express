@@ -348,4 +348,8 @@ describe('', function() {
 
   }); // 'Account Login'
 
+  // describe('Authenticaton', function(){
+  //   it('Should redirect non-authenticated users to '/login', function())
+  // })
+
 });

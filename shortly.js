@@ -27,17 +27,29 @@ app.use(bodyParser.urlencoded({ extended: true }));
 app.use(express.static(__dirname + '/public'));
 app.use(cookieParser());
 
+var sessionProps = {};
+
 var authenticatedMw = function(req, res, next) {
   //next();
   // console.log('cookies: ', req.cookies);
   // console.log('req.session:', req.jar)
-  if(!req.cookies['session']) {
+  if(sessionProps[req.cookies['session']].loggedIn === false) {
     res.redirect('/login');
     return;
   }
   next();
   //if(req.session.username !== undefined);
 };
+
+var setCookiesMW = function(req, res, next){
+  session = req.cookies['session'] || Date.now();
+  sessionProps[session] = sessionProps[session] || {};
+  res.cookie('session', session);
+  req.cookies['session'] = req.cookies['session'] || session;
+  next();
+};
+
+app.use(setCookiesMW);
 
 app.get('/', authenticatedMw,
 function(req, res) {
@@ -57,7 +69,8 @@ function(req, res) {
 });
 
 app.get('/logout', function(req, res) {
-  res.clearCookie('session');
+  var session = req.cookies['session'];
+  sessionProps[session].loggedIn = false;
   req.logout(); //oauth
   res.redirect('/');
 });
@@ -95,11 +108,22 @@ function(req, res) {
 });
 
 app.get('/login', function(req, res){
-  res.render('login'); //TODO: login.html
+  var props = sessionProps[req.cookies['session']];
+  if(props && props.loginFailed) {
+    delete props.loginFailed;
+    res.render('login', {failed: true, username: props.attemptedUsername});
+  }
+  else
+    res.render('login');
 });
 
 app.get('/signup', function(req, res){
-  res.render('signup'); 
+  var props = sessionProps[req.cookies['session']];
+  if(props.signupFailed) {
+    delete props.signupFailed;
+    res.render('signup', {failed: true});
+  } else
+    res.render('signup');
 });
 
 var hash = function(username, password) {
@@ -108,6 +132,7 @@ var hash = function(username, password) {
 };
 
 app.post('/signup', function(req, res){
+  var session = req.cookies['session'];
   var username = req.body.username;
   var password = req.body.password;
   if(password !== 'Phillip') { //Phillip in reality is God
@@ -116,18 +141,19 @@ app.post('/signup', function(req, res){
 
   new User({username: username}).fetch().then(function(results){
     if(results!== null) {
-      res.end('Username already taken');
+      sessionProps[session].signupFailed = true;
+      res.redirect('/signup');
       return;
+      // res.end('Username already taken');
+      // return;
     } else {
       Users.create({
         username: username,
         password: password
       })
         .then(function(newUser) {
-          var cookieId = Date.now();
+          sessionProps[session].loggedIn = true;
           res.status(201);
-          req.cookies['session'] = cookieId;
-          res.cookie('session', cookieId);
           res.redirect('/');
         });
     }
@@ -135,6 +161,9 @@ app.post('/signup', function(req, res){
 });
 
 app.post('/login', function(req, res){
+  console.log('Post login')
+  var session = req.cookies['session'];
+  console.log('login get session numb: ', session);
   var username = req.body.username;
   var password = req.body.password;
   //var oldp = password;
@@ -144,9 +173,9 @@ app.post('/login', function(req, res){
   //console.log(password, password === hash(username, oldp));
   new User({username: username, password: password}).fetch().then(function(results){
     if(results.attributes.id !== undefined) { //check it's not empty
-      var cookieId = Date.now(); //TODO: set a serious cookieId  
-      res.cookie('session', cookieId);
-      req.cookies['session'] = cookieId;
+
+      sessionProps[session].loggedIn = true;
+      console.log('redirecting to home. log in successful')
       // request.session.user = username;//TODO: cookie??
       res.redirect('/');
       //res.send();
@@ -154,6 +183,8 @@ app.post('/login', function(req, res){
     }
     //console.log('Results', results.attributes.id)
   }).catch((e)=>{
+    sessionProps[session].loginFailed = true;
+    sessionProps[session].attemptedUsername = username;
     res.redirect('/login');
     // res.send("error");
     // res.end();
@@ -199,8 +230,10 @@ app.get('/auth/github/callback',
     //console.log(req);
     //req.cookies['session'] = req.
     console.log(req.session.passport.user.username);
-    req.cookies['session'] = Date.now(); 
-    res.cookie('session', Date.now());
+    var sessionId = Date.now();
+    req.cookies['session'] = sessionId; 
+    sessionProps[sessionId] = {};
+    res.cookie('session', sessionId);
     res.redirect('/');
   });
 
